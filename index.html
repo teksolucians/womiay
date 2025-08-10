@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!--This version has the lucianlips gaming header and plays natasha.mp3 bg music and twoForFive.mp3 when collecting two Pitons-->
-    <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>Womiay</title>
@@ -142,7 +141,7 @@
         const GameOverScreen = ({ score, onRestart }) => (
             <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white z-20 cursor-pointer" onClick={onRestart}>
                 <h2 className="text-5xl font-extrabold mb-4">Game Over</h2>
-                <p className="text-2xl mb-8">Beers Fired: {score}</p>
+                <p className="text-2xl mb-8">Pitons Fired: {score}</p>
                 <button
                     className="px-8 py-4 bg-purple-600 hover:bg-purple-700 rounded-lg text-xl font-bold transition-transform transform hover:scale-105"
                 >
