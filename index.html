@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<!--This version has the lucianlips gaming header and plays natasha.mp3 bg music and twoForFive.mp3 when collecting two Pitons-->
+    <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>Womiay</title>
@@ -78,7 +79,7 @@
 
         const Hud = ({ score, speed }) => (
             <div className="absolute top-0 left-0 right-0 p-2 text-white text-lg flex justify-between px-4 z-10 select-none bg-black/20">
-                <span>Beers: {score}</span>
+                <span>Pitons: {score}</span>
                 <span>Speed: {speed.toFixed(1)}x</span>
             </div>
         );
@@ -138,17 +139,54 @@
             />
         );
 
-        const GameOverScreen = ({ score, onRestart }) => (
-            <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white z-20 cursor-pointer" onClick={onRestart}>
-                <h2 className="text-5xl font-extrabold mb-4">Game Over</h2>
-                <p className="text-2xl mb-8">Pitons Fired: {score}</p>
-                <button
-                    className="px-8 py-4 bg-purple-600 hover:bg-purple-700 rounded-lg text-xl font-bold transition-transform transform hover:scale-105"
-                >
-                    Play Again
-                </button>
-            </div>
-        );
+        const GameOverScreen = ({ score, onRestart }) => {
+            const [copied, setCopied] = useState(false);
+            const gameUrl = "https://lucianlipsgaming.owenelwin.com/womiay";
+
+            const handleShare = async (e) => {
+                e.stopPropagation(); // Prevent restart if user clicks this button
+
+                const shareData = {
+                    title: 'Womiay',
+                    text: `I fired ${score} beers in Womiay! Can you beat my score?`,
+                    url: gameUrl,
+                };
+
+                if (navigator.share) {
+                    try {
+                        await navigator.share(shareData);
+                    } catch (err) {
+                        console.error("Share failed:", err);
+                    }
+                } else {
+                    navigator.clipboard.writeText(gameUrl).then(() => {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                    });
+                }
+            };
+            
+            return (
+                <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white z-20">
+                    <h2 className="text-5xl font-extrabold mb-4">Game Over</h2>
+                    <p className="text-2xl mb-8">Pitons Fired: {score}</p>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <button
+                            onClick={onRestart}
+                            className="px-8 py-4 bg-purple-600 hover:bg-purple-700 rounded-lg text-xl font-bold transition-transform transform hover:scale-105"
+                        >
+                            Play Again
+                        </button>
+                        <button
+                            onClick={handleShare}
+                            className="px-8 py-4 bg-teal-500 hover:bg-teal-600 rounded-lg text-xl font-bold transition-transform transform hover:scale-105"
+                        >
+                            {copied ? 'Link Copied!' : 'Share Score'}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
 
         const StartScreen = ({ onStart }) => (
              <div className="absolute inset-0 bg-gradient-to-b from-indigo-900 to-indigo-500 flex flex-col justify-center items-center text-white z-20 cursor-pointer" onClick={onStart}>
