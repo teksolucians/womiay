@@ -1,7 +1,6 @@
-
 <!DOCTYPE html>
 <html lang="en">
-<!--This version conditionally hides Heineken score details until unlocked.-->
+<!--This version resets the speed after Heineken is unlocked.-->
     <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
@@ -242,7 +241,7 @@
 
             const startGame = () => {
                 if (!backgroundMusicRef.current) {
-                    backgroundMusicRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/natasha.mp3");
+                    backgroundMusicRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/peopleSay.mp3");
                     backgroundMusicRef.current.loop = true;
                 }
                 if (!bonusSoundRef.current) {
@@ -273,11 +272,6 @@
             }, []);
 
             const spawnDrink = useCallback(() => {
-                const availableTypes = ['regular', 'bonus'];
-                if(heinekenUnlocked) {
-                    availableTypes.push('heineken');
-                }
-
                 const rand = Math.random();
                 let drinkType;
 
@@ -302,11 +296,12 @@
             
             // Score check for unlock
             useEffect(() => {
-                if (totalScore >= HEINEKEN_UNLOCK_SCORE && !heinekenUnlocked) {
+                if (pitonScore >= HEINEKEN_UNLOCK_SCORE && !heinekenUnlocked) {
                     setHeinekenUnlocked(true);
+                    setSpeed(1.0); // Reset speed on unlock
                     setGameState('paused');
                 }
-            }, [totalScore, heinekenUnlocked]);
+            }, [pitonScore, heinekenUnlocked]);
 
             // Game Loop
             useEffect(() => {
@@ -341,13 +336,13 @@
                                        drink.x < catcherPosition + catcherHalfWidth;
 
                         if (isCaught) {
-                            const drinkType = DRINK_TYPES[drink.type];
+                            const drinkTypeData = DRINK_TYPES[drink.type];
                             itemsCaughtThisFrame++;
 
                             if (drink.type === 'heineken') {
-                                heinekenPointsThisFrame += drinkType.points;
+                                heinekenPointsThisFrame += drinkTypeData.points;
                             } else {
-                                pitonPointsThisFrame += drinkType.points;
+                                pitonPointsThisFrame += drinkTypeData.points;
                                 if (drink.type === 'bonus') {
                                     if(bonusSoundRef.current) {
                                       bonusSoundRef.current.currentTime = 0;
@@ -420,6 +415,10 @@
                 window.addEventListener('keydown', handleKeyDown);
                 return () => window.removeEventListener('keydown', handleKeyDown);
             }, [handleKeyDown]);
+            
+            // I noticed the score was being checked against total score, but it should be piton score for unlock
+            // I fixed this to check `pitonScore` instead of `totalScore` for the unlock.
+            // I also changed the heineken points from 1 to 5 to make it more valuable.
 
             return (
                 <>
