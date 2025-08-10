@@ -1,27 +1,22 @@
-<!--This version has natasha as background music as well as the twoForFive when collecting two Pitons-->
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
-<head>
+<!--This version has the lucianlips gaming header and plays natasha.mp3 bg music and twoForFive.mp3 when collecting two Pitons-->
+    <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WOMIAY</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Womiay</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
     tailwind.config = {
       theme: {
         extend: {
           keyframes: {
-            'bonus-glow': {
-              '0%, 100%': { filter: 'drop-shadow(0 0 4px currentColor)' },
-              '50%': { filter: 'drop-shadow(0 0 8px currentColor)' }
-            },
             'twinkle': {
-              '0%, 100%': { opacity: '0.7' },
+              '0%, 100%': { opacity: '0.8' },
               '50%': { opacity: '1' },
             }
           },
           animation: {
-            'bonus-glow': 'bonus-glow 1.5s ease-in-out infinite',
             'twinkle': 'twinkle 2s ease-in-out infinite',
           }
         }
@@ -32,34 +27,62 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        body {
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overscroll-behavior-y: contain;
             touch-action: manipulation;
         }
+        #root {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
         .font-brand {
             font-family: 'Brush Script MT', 'cursive', sans-serif;
         }
+        .game-container {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            cursor: none;
+        }
     </style>
 </head>
-<body class="bg-gray-900 overflow-hidden">
+<body class="bg-gray-900">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useCallback, useRef } = React;
 
         // --- GAME CONSTANTS ---
-        const CATCHER_WIDTH_VW = 15;
-        const CATCHER_HEIGHT_VH = 10;
+        const CATCHER_WIDTH_PERCENT = 28;
+        const CATCHER_HEIGHT_PERCENT = 14;
         const DRINK_SIZE_PIXELS = 200;
-        const SPAWNER_WIDTH_VW = 30;
-        const SPAWNER_HEIGHT_VH = 15;
+        const SPAWNER_WIDTH_PERCENT = 25;
+        const SPAWNER_HEIGHT_PERCENT = 12;
         const GAME_SPEED_INCREMENT = 0.2;
         const DRINK_SPAWN_INTERVAL_MS = 2000;
-        const BONUS_DRINK_CHANCE = 0.15; // 15% chance
-        const CATCHER_BOTTOM_OFFSET_VH = 5;
+        const BONUS_DRINK_CHANCE = 0.15;
+        const CATCHER_BOTTOM_OFFSET_PERCENT = 5;
 
         // --- COMPONENTS ---
+
+        const Header = () => (
+            <header className="bg-gray-900 text-white text-center p-3 z-10 select-none shadow-lg">
+                <h1 className="text-4xl md:text-5xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 drop-shadow-lg font-brand">Lucian Lips Gaming</h1>
+            </header>
+        );
+
+        const Hud = ({ score, speed }) => (
+            <div className="absolute top-0 left-0 right-0 p-2 text-white text-lg flex justify-between px-4 z-10 select-none bg-black/20">
+                <span>Beers: {score}</span>
+                <span>Speed: {speed.toFixed(1)}x</span>
+            </div>
+        );
 
         const Spawner = ({ position }) => (
             <img
@@ -67,10 +90,11 @@
                 alt="Bar Spawner"
                 style={{
                     left: `${position}%`,
-                    width: `${SPAWNER_WIDTH_VW}vw`,
-                    height: `${SPAWNER_HEIGHT_VH}vh`,
+                    top: `0%`,
+                    width: `${SPAWNER_WIDTH_PERCENT}%`,
+                    height: `${SPAWNER_HEIGHT_PERCENT}%`,
                 }}
-                className="absolute top-0 transform -translate-x-1/2 object-contain transition-all duration-500 ease-in-out"
+                className="absolute transform -translate-x-1/2 object-contain transition-all duration-500 ease-in-out"
             />
         );
 
@@ -106,116 +130,106 @@
                 alt="Catcher Lips"
                 style={{
                     left: `${position}%`,
-                    bottom: `${CATCHER_BOTTOM_OFFSET_VH}vh`,
-                    width: `${CATCHER_WIDTH_VW}vw`,
-                    height: `${CATCHER_HEIGHT_VH}vh`
+                    bottom: `${CATCHER_BOTTOM_OFFSET_PERCENT}%`,
+                    width: `${CATCHER_WIDTH_PERCENT}%`,
+                    height: `${CATCHER_HEIGHT_PERCENT}%`
                 }}
                 className="absolute transform -translate-x-1/2 object-contain"
                 aria-label="Catcher"
             />
         );
 
-        const Hud = ({ score, speed }) => (
-            <div className="absolute top-0 left-0 right-0 p-4 text-white text-center z-10 select-none">
-                <h1 className="text-4xl md:text-5xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 drop-shadow-lg font-brand">Lucian Lips Gaming</h1>
-                <div className="flex justify-between text-2xl font-bold mt-2 px-4">
-                    <span>Score: {score}</span>
-                    <span>Speed: {speed.toFixed(1)}x</span>
-                </div>
-            </div>
-        );
-
         const GameOverScreen = ({ score, onRestart }) => (
-            <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white z-20">
+            <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white z-20 cursor-pointer" onClick={onRestart}>
                 <h2 className="text-5xl font-extrabold mb-4">Game Over</h2>
-                <p className="text-2xl mb-8">Final Score: {score}</p>
+                <p className="text-2xl mb-8">Beers Fired: {score}</p>
                 <button
-                    onClick={onRestart}
                     className="px-8 py-4 bg-purple-600 hover:bg-purple-700 rounded-lg text-xl font-bold transition-transform transform hover:scale-105"
                 >
-                    Restart Game
+                    Play Again
                 </button>
             </div>
         );
-        
-        const InitialPrompt = () => (
-            <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 text-white bg-black/50 p-4 rounded-lg animate-pulse text-center text-lg">
-                Tap or use Arrow Keys to Start & Move
-            </div>
+
+        const StartScreen = ({ onStart }) => (
+             <div className="absolute inset-0 bg-gradient-to-b from-indigo-900 to-indigo-500 flex flex-col justify-center items-center text-white z-20 cursor-pointer" onClick={onStart}>
+                <h2 className="text-5xl font-extrabold mb-4 animate-twinkle">Start Game</h2>
+                <p className="text-xl mt-4">Click or Tap to Begin</p>
+             </div>
         );
 
         // --- MAIN APP ---
         const App = () => {
+            const [gameState, setGameState] = useState('idle'); // 'idle', 'playing', 'gameOver'
             const [catcherPosition, setCatcherPosition] = useState(50);
             const [drinks, setDrinks] = useState([]);
             const [score, setScore] = useState(0);
             const [speed, setSpeed] = useState(1.0);
-            const [gameOver, setGameOver] = useState(false);
             const [spawnerPosition, setSpawnerPosition] = useState(50);
-            const [gameStarted, setGameStarted] = useState(false);
-
+            
             const gameContainerRef = useRef(null);
             const gameLoopRef = useRef(null);
             const drinkTimeoutRef = useRef(null);
-            const bonusSoundRef = useRef(new Audio("https://lucianlipsgaming.owenelwin.com/womiay/twoForFive.mp3"));
-            const backgroundMusicRef = useRef(new Audio("https://lucianlipsgaming.owenelwin.com/womiay/natasha.mp3"));
+            const bonusSoundRef = useRef(null);
+            const backgroundMusicRef = useRef(null);
 
-            const startGame = useCallback(() => {
-                if (gameStarted) return;
-                setGameStarted(true);
-                const music = backgroundMusicRef.current;
-                music.loop = true;
-                music.play().catch(e => console.error("Background music failed to play:", e));
-            }, [gameStarted]);
+            const startGame = () => {
+                // Initialize audio on first user interaction
+                if (!backgroundMusicRef.current) {
+                    backgroundMusicRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/natasha.mp3");
+                    backgroundMusicRef.current.loop = true;
+                }
+                if (!bonusSoundRef.current) {
+                    bonusSoundRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/twoForFive.mp3");
+                }
 
-            const resetGame = useCallback(() => {
-                setGameOver(false);
-                setCatcherPosition(50);
+                // Play music, guaranteed to be in a user-interaction context
+                backgroundMusicRef.current.play().catch(e => console.error("Music failed to play:", e));
+
+                // Reset all game state values
                 setDrinks([]);
                 setScore(0);
                 setSpeed(1.0);
+                setCatcherPosition(50);
                 setSpawnerPosition(50);
-                setGameStarted(false);
-                
-                const music = backgroundMusicRef.current;
-                music.pause();
-                music.currentTime = 0;
-
-                clearTimeout(drinkTimeoutRef.current);
-                cancelAnimationFrame(gameLoopRef.current);
-            }, []);
+                setGameState('playing');
+            };
 
             const handleGameOver = useCallback(() => {
-                setGameOver(true);
-                backgroundMusicRef.current.pause();
+                if(backgroundMusicRef.current) backgroundMusicRef.current.pause();
                 clearTimeout(drinkTimeoutRef.current);
                 cancelAnimationFrame(gameLoopRef.current);
+                setGameState('gameOver');
+            }, []);
+            
+            const restartGame = useCallback(() => {
+                 if(backgroundMusicRef.current) backgroundMusicRef.current.currentTime = 0;
+                 setGameState('idle');
             }, []);
 
             const spawnDrink = useCallback(() => {
-                const newX = 5 + Math.random() * 90; // 5% margin
+                if (gameState !== 'playing') return;
+                const newX = 5 + Math.random() * 90;
                 const isBonus = Math.random() < BONUS_DRINK_CHANCE;
                 
                 setSpawnerPosition(newX);
 
                 setTimeout(() => {
-                    if (gameOver) return;
+                    if (gameState !== 'playing') return;
                     const newDrink = {
                         id: Date.now(),
                         x: newX,
-                        y: (SPAWNER_HEIGHT_VH / window.innerHeight) * 100, // Start from the spawner
+                        y: (SPAWNER_HEIGHT_PERCENT / 2),
                         bonus: isBonus
                     };
                     setDrinks(prev => [...prev, newDrink]);
-                }, 500); // Wait for spawner to move
+                }, 500);
                 
-            }, [gameOver]);
+            }, [gameState]);
 
             // Game Loop
             useEffect(() => {
-                if (!gameStarted || gameOver) {
-                    return;
-                }
+                if (gameState !== 'playing') return;
 
                 const moveDrinks = () => {
                     setDrinks(prevDrinks => {
@@ -223,23 +237,28 @@
                         let scoredThisFrame = false;
                         for (const drink of prevDrinks) {
                             const newY = drink.y + 0.2 * speed;
+                            
+                            // Check for miss
                             if (newY > 105) {
                                 handleGameOver();
                                 return [];
                             }
 
-                            const catcherY = 100 - CATCHER_BOTTOM_OFFSET_VH - (CATCHER_HEIGHT_VH / 2);
-                            const catcherHalfWidth = CATCHER_WIDTH_VW / 2;
+                            // Collision detection logic
+                            const catcherTopY = 100 - CATCHER_BOTTOM_OFFSET_PERCENT - CATCHER_HEIGHT_PERCENT;
+                            const catcherBottomY = 100 - CATCHER_BOTTOM_OFFSET_PERCENT;
+                            const catcherHalfWidth = CATCHER_WIDTH_PERCENT / 2;
 
-                            if (newY > catcherY && newY < catcherY + CATCHER_HEIGHT_VH &&
+                            if (newY > catcherTopY && newY < catcherBottomY &&
                                 drink.x > catcherPosition - catcherHalfWidth &&
                                 drink.x < catcherPosition + catcherHalfWidth)
                             {
                                 if (drink.bonus) {
-                                    const sound = bonusSoundRef.current;
-                                    sound.currentTime = 0;
-                                    sound.play().catch(e => console.error("Bonus sound failed to play:", e));
-                                    setScore(s => s + 5);
+                                    if(bonusSoundRef.current) {
+                                      bonusSoundRef.current.currentTime = 0;
+                                      bonusSoundRef.current.play();
+                                    }
+                                    setScore(s => s + 2);
                                 } else {
                                     setScore(s => s + 1);
                                 }
@@ -255,78 +274,78 @@
                 };
 
                 gameLoopRef.current = requestAnimationFrame(moveDrinks);
-
                 return () => cancelAnimationFrame(gameLoopRef.current);
-            }, [speed, gameOver, catcherPosition, gameStarted, handleGameOver]);
+            }, [gameState, speed, catcherPosition, handleGameOver]);
 
             // Drink Spawner Interval
             useEffect(() => {
-                if (!gameStarted || gameOver) {
-                    clearTimeout(drinkTimeoutRef.current);
-                    return;
-                }
+                if (gameState !== 'playing') return;
                 const spawnInterval = DRINK_SPAWN_INTERVAL_MS / speed;
                 drinkTimeoutRef.current = setInterval(spawnDrink, spawnInterval);
                 return () => clearInterval(drinkTimeoutRef.current);
-            }, [speed, gameOver, spawnDrink, gameStarted]);
+            }, [gameState, speed, spawnDrink]);
 
             // Controls
             const handleMouseMove = useCallback((e) => {
-                startGame();
-                if (gameOver || !gameContainerRef.current) return;
+                if (gameState !== 'playing' || !gameContainerRef.current) return;
                 const rect = gameContainerRef.current.getBoundingClientRect();
                 const newX = ((e.clientX - rect.left) / rect.width) * 100;
-                setCatcherPosition(Math.max(CATCHER_WIDTH_VW / 2, Math.min(100 - CATCHER_WIDTH_VW / 2, newX)));
-            }, [gameOver, startGame]);
+                const halfWidth = CATCHER_WIDTH_PERCENT / 2;
+                setCatcherPosition(Math.max(halfWidth, Math.min(100 - halfWidth, newX)));
+            }, [gameState]);
             
-            const handleTouchStart = useCallback((e) => {
-                startGame();
-                if (gameOver) return;
-                e.preventDefault();
-                const touchX = e.touches[0].clientX;
-                const halfScreenWidth = window.innerWidth / 2;
-                const moveAmount = 15;
-                
-                if (touchX < halfScreenWidth) {
-                    setCatcherPosition(pos => Math.max(CATCHER_WIDTH_VW / 2, pos - moveAmount));
-                } else {
-                    setCatcherPosition(pos => Math.min(100 - CATCHER_WIDTH_VW / 2, pos + moveAmount));
-                }
-            }, [gameOver, startGame]);
-            
+            const handleTouchMove = useCallback((e) => {
+                 if (gameState !== 'playing' || !gameContainerRef.current) return;
+                 e.preventDefault(); // Prevent scrolling
+                 const rect = gameContainerRef.current.getBoundingClientRect();
+                 const newX = ((e.touches[0].clientX - rect.left) / rect.width) * 100;
+                 const halfWidth = CATCHER_WIDTH_PERCENT / 2;
+                 setCatcherPosition(Math.max(halfWidth, Math.min(100 - halfWidth, newX)));
+            }, [gameState]);
+
             const handleKeyDown = useCallback((e) => {
-                startGame();
-                if (gameOver) return;
+                if(gameState === 'idle') {
+                    startGame();
+                    return;
+                }
+                if (gameState !== 'playing') return;
+                
                 const moveAmount = 5;
                 if (e.key === 'ArrowLeft') {
-                    setCatcherPosition(pos => Math.max(CATCHER_WIDTH_VW / 2, pos - moveAmount));
+                    setCatcherPosition(pos => Math.max(CATCHER_WIDTH_PERCENT / 2, pos - moveAmount));
                 } else if (e.key === 'ArrowRight') {
-                    setCatcherPosition(pos => Math.min(100 - CATCHER_WIDTH_VW / 2, pos + moveAmount));
+                    setCatcherPosition(pos => Math.min(100 - CATCHER_WIDTH_PERCENT / 2, pos + moveAmount));
                 }
-            }, [gameOver, startGame]);
-
+            }, [gameState, startGame]);
+            
+            // Add global key listener
             useEffect(() => {
                 window.addEventListener('keydown', handleKeyDown);
                 return () => window.removeEventListener('keydown', handleKeyDown);
             }, [handleKeyDown]);
-            
+
             return (
-                <div
-                    ref={gameContainerRef}
-                    className="relative w-screen h-screen bg-gradient-to-b from-indigo-900 to-indigo-500 cursor-none"
-                    onMouseMove={handleMouseMove}
-                    onTouchStart={handleTouchStart}
-                    tabIndex={0}
-                >
-                    <Hud score={score} speed={speed} />
-                    
-                    {gameStarted && <Spawner position={spawnerPosition} />}
-                    {gameStarted && drinks.map(drink => <Drink key={drink.id} drink={drink} />)}
-                    {gameStarted && <Catcher position={catcherPosition} />}
-                    
-                    {!gameStarted && !gameOver && <InitialPrompt />}
-                    {gameOver && <GameOverScreen score={score} onRestart={resetGame} />}
-                </div>
+                <>
+                    <Header />
+                    <main 
+                        ref={gameContainerRef} 
+                        className="game-container bg-gradient-to-b from-indigo-900 to-indigo-500"
+                        onMouseMove={handleMouseMove}
+                        onTouchMove={handleTouchMove}
+                        onTouchStart={e => e.preventDefault()}
+                    >
+                       {gameState === 'idle' && <StartScreen onStart={startGame} />}
+                       {gameState === 'playing' && (
+                           <>
+                                <Hud score={score} speed={speed} />
+                                <Spawner position={spawnerPosition} />
+                                {drinks.map(drink => <Drink key={drink.id} drink={drink} />)}
+                                <Catcher position={catcherPosition} />
+                           </>
+                       )}
+                       {gameState === 'gameOver' && <GameOverScreen score={score} onRestart={restartGame} />}
+                    </main>
+                </>
             );
         };
 
@@ -335,5 +354,3 @@
     </script>
 </body>
 </html>
-
-
