@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beer Distribution Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          keyframes: {
+            'item-bob': {
+              '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+              '50%': { transform: 'scale(1.1)', opacity: '0.8' },
+            },
+            'glow': {
+              '0%, 100%': { 'text-shadow': '0 0 5px #fff, 0 0 10px #fff, 0 0 15px #0073e6, 0 0 20px #0073e6' },
+              '50%': { 'text-shadow': '0 0 10px #fff, 0 0 15px #0073e6, 0 0 20px #0073e6, 0 0 25px #0073e6' }
+            },
+            'bonus-glow': {
+              '0%, 100%': { filter: 'drop-shadow(0 0 4px currentColor)' },
+              '50%': { filter: 'drop-shadow(0 0 8px currentColor)' }
+            },
+            'twinkle': {
+              '0%, 100%': { opacity: '0.7' },
+              '50%': { opacity: '1' },
+            }
+          },
+          animation: {
+            'item-bob': 'item-bob 2s ease-in-out infinite',
+            'glow': 'glow 1.5s ease-in-out infinite',
+            'bonus-glow': 'bonus-glow 1.5s ease-in-out infinite',
+            'twinkle': 'twinkle 2s ease-in-out infinite',
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overscroll-behavior-y: contain;
+      touch-action: manipulation;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 overflow-hidden">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    // --- GAME CONSTANTS ---
+    const CATCHER_WIDTH_VW = 15;
+    const CATCHER_HEIGHT_VH = 10;
+    const DRINK_SIZE_PIXELS = 200;
+    const SPAWNER_WIDTH_VW = 30;
+    const SPAWNER_HEIGHT_VH = 15;
+    const GAME_SPEED_INCREMENT = 0.2;
+    const DRINK_SPAWN_INTERVAL_MS = 2000;
+    const BONUS_DRINK_CHANCE = 0.15; // 15% chance
+    const CATCHER_BOTTOM_OFFSET_VH = 5;
+
+    // --- COMPONENTS ---
+    const Spawner = ({ position }) => {
+      return (
+        <img
+          src="https://lucianlipsgaming.owenelwin.com/womiay/theBar.png"
+          alt="Bar Spawner"
+          style={{
+            left: `${position}%`,
+            width: `${SPAWNER_WIDTH_VW}vw`,
+            height: `${SPAWNER_HEIGHT_VH}vh`,
+          }}
+          className="absolute top-0 transform -translate-x-1/2 object-contain transition-all duration-500 ease-in-out"
+        />
+      );
+    };
+
+    const Drink = ({ drink }) => {
+      const isBonus = drink.bonus;
+      const size = isBonus ? DRINK_SIZE_PIXELS : DRINK_SIZE_PIXELS - 50;
+
+      return (
+        <div
+          style={{
+            left: `${drink.x}%`,
+            top: `${drink.y}%`,
+            width: `${size}px`,
+            height: `${size}px`,
+          }}
+          className="absolute transform -translate-x-1/2 -translate-y-1/2"
+        >
+          <img
+            src={
+              isBonus
+                ? "https://lucianlipsgaming.owenelwin.com/womiay/twoPitons.png"
+                : "https://lucianlipsgaming.owenelwin.com/womiay/onePiton.png"
+            }
+            alt={isBonus ? "Bonus Drink" : "Drink"}
+            className="w-full h-full object-contain animate-twinkle"
+            style={{
+              filter: isBonus ? `drop-shadow(0 0 10px #d8b4fe)` : 'none', // purple-300
+            }}
+          />
+        </div>
+      );
+    };
+
+    const Catcher = ({ position }) => {
+      return (
+        <img
+          src="https://lucianlipsgaming.owenelwin.com/womiay/lips.png"
+          alt="Catcher Lips"
+          style={{
+            left: `${position}%`,
+            bottom: `${CATCHER_BOTTOM_OFFSET_VH}vh`,
+            width: `${CATCHER_WIDTH_VW}vw`,
+            height: `${CATCHER_HEIGHT_VH}vh`
+          }}
+          className="absolute transform -translate-x-1/2 object-contain"
+          aria-label="Catcher"
+        />
+      );
+    };
+
+    const Hud = ({ score, speed }) => (
+      <div className="absolute top-0 left-0 right-0 p-4 text-white flex justify-between text-2xl font-bold z-10">
+        <h1>Score: {score}</h1>
+        <span>Speed: {speed.toFixed(1)}x</span>
+      </div>
+    );
+
+    const GameOverScreen = ({ score, onRestart }) => (
+      <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white z-20">
+        <h2 className="text-5xl font-extrabold mb-4">Game Over</h2>
+        <p className="text-2xl mb-8">Final Score: {score}</p>
+        <button
+          onClick={onRestart}
+          className="px-8 py-4 bg-purple-600 hover:bg-purple-700 rounded-lg text-xl font-bold transition-transform transform hover:scale-105"
+        >
+          Restart Game
+        </button>
+      </div>
+    );
+
+    // --- MAIN APP ---
+    const App = () => {
+      const [catcherPosition, setCatcherPosition] = useState(50);
+      const [drinks, setDrinks] = useState([]);
+      const [score, setScore] = useState(0);
+      const [speed, setSpeed] = useState(1.0);
+      const [gameOver, setGameOver] = useState(false);
+      const [spawnerPosition, setSpawnerPosition] = useState(50);
+
+      const gameContainerRef = useRef(null);
+      const gameLoopRef = useRef(null);
+      const drinkTimeoutRef = useRef(null);
+
+      // SFX when catching a bonus
+      const bonusSoundRef = useRef(
+        new Audio("https://lucianlipsgaming.owenelwin.com/womiay/twoForFive.mp3")
+      );
+
+      // 🎵 Main background music: natasha.mp3
+      const backgroundMusicRef = useRef(
+        new Audio("https://lucianlipsgaming.owenelwin.com/womiay/natasha.mp3")
+      );
+      backgroundMusicRef.current.loop = true;
+      backgroundMusicRef.current.volume = 0.5;
+
+      // Attempt autoplay, but be ready to start after first interaction
+      useEffect(() => {
+        const music = backgroundMusicRef.current;
+
+        const tryPlay = () => {
+          music.play().catch(() => {
+            // Autoplay blocked. Wait for first user interaction.
+          });
+        };
+
+        // Try once on mount
+        tryPlay();
+
+        // Start music on first interaction if blocked
+        const kickOff = () => {
+          music.play().catch(() => {});
+          window.removeEventListener('pointerdown', kickOff);
+          window.removeEventListener('keydown', kickOff);
+        };
+        window.addEventListener('pointerdown', kickOff, { once: true });
+        window.addEventListener('keydown', kickOff, { once: true });
+
+        return () => {
+          music.pause();
+          music.currentTime = 0;
+          window.removeEventListener('pointerdown', kickOff);
+          window.removeEventListener('keydown', kickOff);
+        };
+      }, []);
+
+      // Pause/Resume music based on game state
+      useEffect(() => {
+        const music = backgroundMusicRef.current;
+        if (gameOver) {
+          music.pause();
+        } else {
+          // If not playing, resume
+          if (music.paused) {
+            music.play().catch(() => {});
+          }
+        }
+      }, [gameOver]);
+
+      const resetGame = useCallback(() => {
+        setCatcherPosition(50);
+        setDrinks([]);
+        setScore(0);
+        setSpeed(1.0);
+        setSpawnerPosition(50);
+        setGameOver(false);
+
+        // Restart music
+        const music = backgroundMusicRef.current;
+        music.currentTime = 0;
+        music.play().catch(() => {});
+      }, []);
+
+      const spawnDrink = useCallback(() => {
+        const newX = 5 + Math.random() * 90; // 5% margin
+        const isBonus = Math.random() < BONUS_DRINK_CHANCE;
+
+        setSpawnerPosition(newX);
+
+        setTimeout(() => {
+          const newDrink = {
+            id: Date.now(),
+            x: newX,
+            y: (SPAWNER_HEIGHT_VH / window.innerHeight) * 100, // Start from spawner
+            bonus: isBonus
+          };
+          setDrinks(prev => [...prev, newDrink]);
+        }, 500); // Wait for spawner move
+      }, []);
+
+      // Game Loop
+      useEffect(() => {
+        if (gameOver) {
+          cancelAnimationFrame(gameLoopRef.current);
+          clearTimeout(drinkTimeoutRef.current);
+          return;
+        }
+
+        const moveDrinks = () => {
+          setDrinks(prevDrinks => {
+            const newDrinks = [];
+            for (const drink of prevDrinks) {
+              const newY = drink.y + 0.2 * speed;
+              if (newY > 105) { // off screen -> game over
+                setGameOver(true);
+              } else {
+                // Collision detection
+                const catcherY = 100 - CATCHER_BOTTOM_OFFSET_VH - (CATCHER_HEIGHT_VH / 2);
+                const catcherHalfWidth = CATCHER_WIDTH_VW / 2;
+
+                if (
+                  newY > catcherY && newY < catcherY + CATCHER_HEIGHT_VH &&
+                  drink.x > catcherPosition - catcherHalfWidth &&
+                  drink.x < catcherPosition + catcherHalfWidth
+                ) {
+                  if (drink.bonus) {
+                    const s = bonusSoundRef.current;
+                    s.currentTime = 0;
+                    s.play();
+                  }
+                  setScore(s => s + (drink.bonus ? 5 : 1));
+                  setSpeed(s => s + GAME_SPEED_INCREMENT);
+                } else {
+                  newDrinks.push({ ...drink, y: newY });
+                }
+              }
+            }
+            return newDrinks;
+          });
+          gameLoopRef.current = requestAnimationFrame(moveDrinks);
+        };
+
+        gameLoopRef.current = requestAnimationFrame(moveDrinks);
+        return () => cancelAnimationFrame(gameLoopRef.current);
+      }, [speed, gameOver, catcherPosition]);
+
+      // Drink Spawner Interval
+      useEffect(() => {
+        if (gameOver) {
+          clearTimeout(drinkTimeoutRef.current);
+          return;
+        }
+        const spawnInterval = DRINK_SPAWN_INTERVAL_MS / speed;
+        drinkTimeoutRef.current = setInterval(spawnDrink, spawnInterval);
+        return () => clearInterval(drinkTimeoutRef.current);
+      }, [speed, gameOver, spawnDrink]);
+
+      // Controls
+      const handleMouseMove = useCallback((e) => {
+        if (gameOver || !gameContainerRef.current) return;
+        const rect = gameContainerRef.current.getBoundingClientRect();
+        const newX = ((e.clientX - rect.left) / rect.width) * 100;
+        setCatcherPosition(Math.max(CATCHER_WIDTH_VW / 2, Math.min(100 - CATCHER_WIDTH_VW / 2, newX)));
+      }, [gameOver]);
+
+      const handleTouchStart = useCallback((e) => {
+        if (gameOver) return;
+        e.preventDefault(); // Prevent emulated mouse events
+        const touchX = e.touches[0].clientX;
+        const halfScreenWidth = window.innerWidth / 2;
+        const moveAmount = 15; // Move 15% per tap
+
+        if (touchX < halfScreenWidth) {
+          setCatcherPosition(pos => Math.max(CATCHER_WIDTH_VW / 2, pos - moveAmount));
+        } else {
+          setCatcherPosition(pos => Math.min(100 - CATCHER_WIDTH_VW / 2, pos + moveAmount));
+        }
+      }, [gameOver]);
+
+      const handleKeyDown = useCallback((e) => {
+        if (gameOver) return;
+        const moveAmount = 5;
+        if (e.key === 'ArrowLeft') {
+          setCatcherPosition(pos => Math.max(CATCHER_WIDTH_VW / 2, pos - 5));
+        } else if (e.key === 'ArrowRight') {
+          setCatcherPosition(pos => Math.min(100 - CATCHER_WIDTH_VW / 2, pos + 5));
+        }
+      }, [gameOver]);
+
+      useEffect(() => {
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [handleKeyDown]);
+
+      return (
+        <div
+          ref={gameContainerRef}
+          className="relative w-screen h-screen bg-gradient-to-b from-indigo-900 to-indigo-500 cursor-none"
+          onMouseMove={handleMouseMove}
+          onTouchStart={handleTouchStart}
+          tabIndex={0}
+        >
+          <Hud score={score} speed={speed} />
+          <Spawner position={spawnerPosition} />
+
+          {drinks.map(drink => <Drink key={drink.id} drink={drink} />)}
+
+          <Catcher position={catcherPosition} />
+
+          {gameOver && <GameOverScreen score={score} onRestart={resetGame} />}
+
+          {!gameOver && drinks.length === 0 && (
+            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-white bg-black/50 p-2 rounded-md animate-pulse">
+              Tap or use Arrow Keys to move
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
