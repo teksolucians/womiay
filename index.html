@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-<!--This version resets the speed after Heineken is unlocked.-->
-    <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>Womiay</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
+<!--This version introduces a multi-tiered unlock system for Guinness and Rude Boy + plays rudeBoy.mp3 when catching Rude Boy.-->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Womiay</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
     tailwind.config = {
       theme: {
         extend: {
@@ -22,433 +22,403 @@
         }
       }
     }
-    </script>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <style>
-        body, html {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overscroll-behavior-y: contain;
-            touch-action: manipulation;
-        }
-        #root {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        .font-brand {
-            font-family: 'Brush Script MT', 'cursive', sans-serif;
-        }
-        .game-container {
-            flex-grow: 1;
-            position: relative;
-            overflow: hidden;
-            cursor: none;
-        }
-    </style>
+  </script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overscroll-behavior-y: contain;
+      touch-action: manipulation;
+    }
+    #root {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .font-brand { font-family: 'Brush Script MT', 'cursive', sans-serif; }
+    .game-container {
+      flex-grow: 1;
+      position: relative;
+      overflow: hidden;
+      cursor: none;
+    }
+  </style>
 </head>
 <body class="bg-gray-900">
-    <div id="root"></div>
+  <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useCallback, useRef } = React;
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
 
-        // --- GAME CONSTANTS ---
-        const CATCHER_WIDTH_PERCENT = 28;
-        const CATCHER_HEIGHT_PERCENT = 14;
-        const SPAWNER_WIDTH_PERCENT = 25;
-        const SPAWNER_HEIGHT_PERCENT = 12;
-        const GAME_SPEED_INCREMENT = 0.2;
-        const DRINK_SPAWN_INTERVAL_MS = 2000;
-        const CATCHER_BOTTOM_OFFSET_PERCENT = 5;
-        const HEINEKEN_UNLOCK_SCORE = 24;
+    // --- GAME CONSTANTS ---
+    const CATCHER_WIDTH_PERCENT = 28;
+    const CATCHER_HEIGHT_PERCENT = 14;
+    const SPAWNER_WIDTH_PERCENT = 25;
+    const SPAWNER_HEIGHT_PERCENT = 12;
+    const GAME_SPEED_INCREMENT = 0.2;
+    const DRINK_SPAWN_INTERVAL_MS = 2000;
+    const CATCHER_BOTTOM_OFFSET_PERCENT = 5;
 
-        const DRINK_TYPES = {
-            regular: {
-                src: "https://lucianlipsgaming.owenelwin.com/womiay/onePiton.png",
-                size: 150,
-                points: 1,
-                glow: false,
-            },
-            bonus: {
-                src: "https://lucianlipsgaming.owenelwin.com/womiay/twoPitons.png",
-                size: 200,
-                points: 2,
-                glow: true,
-            },
-            heineken: {
-                src: "https://lucianlipsgaming.owenelwin.com/womiay/heineken.png",
-                size: 200,
-                points: 1,
-                glow: true,
-            },
+    const UNLOCK_TIERS = [
+      { name: 'heineken', score: 24, unlocked: false, bgColor: 'bg-green-600', hoverBgColor: 'hover:bg-green-700', textColor: 'text-green-400' },
+      { name: 'guinness', score: 48, unlocked: false, bgColor: 'bg-gray-700', hoverBgColor: 'hover:bg-gray-800', textColor: 'text-yellow-200' },
+      { name: 'rudeBoy', score: 72, unlocked: false, bgColor: 'bg-red-600', hoverBgColor: 'hover:bg-red-700', textColor: 'text-red-400' },
+    ];
+
+    const DRINK_TYPES = {
+      regular:  { src: "https://lucianlipsgaming.owenelwin.com/womiay/onePiton.png",  size: 150, points: 1, glow: false },
+      bonus:    { src: "https://lucianlipsgaming.owenelwin.com/womiay/twoPitons.png", size: 200, points: 2, glow: true  },
+      heineken: { src: "https://lucianlipsgaming.owenelwin.com/womiay/heineken.png", size: 200, points: 1, glow: true  },
+      guinness: { src: "https://lucianlipsgaming.owenelwin.com/womiay/guinness.png", size: 200, points: 1, glow: true  },
+      rudeBoy:  { src: "https://lucianlipsgaming.owenelwin.com/womiay/rudeBoy.png",  size: 150, points: 1, glow: true  },
+    };
+
+    // --- COMPONENTS ---
+    const Header = () => (
+      <header className="bg-gray-900 text-white text-center p-3 z-10 select-none shadow-lg">
+        <h1 className="text-4xl md:text-5xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 drop-shadow-lg font-brand">
+          Lucian Lips Gaming
+        </h1>
+      </header>
+    );
+
+    const Hud = ({ score, speed }) => (
+      <div className="absolute top-0 left-0 right-0 p-2 text-white text-lg flex justify-between px-4 z-10 select-none bg-black/20">
+        <span>Beers: {score}</span>
+        <span>Speed: {speed.toFixed(1)}x</span>
+      </div>
+    );
+
+    const Spawner = ({ position }) => (
+      <img
+        src="https://lucianlipsgaming.owenelwin.com/womiay/theBar.png"
+        alt="Bar Spawner"
+        style={{ left: `${position}%`, top: `0%`, width: `${SPAWNER_WIDTH_PERCENT}%`, height: `${SPAWNER_HEIGHT_PERCENT}%` }}
+        className="absolute transform -translate-x-1/2 object-contain transition-all duration-500 ease-in-out"
+      />
+    );
+
+    const Drink = ({ drink }) => {
+      const type = DRINK_TYPES[drink.type];
+      return (
+        <div
+          style={{ left: `${drink.x}%`, top: `${drink.y}%`, width: `${type.size}px`, height: `${type.size}px` }}
+          className="absolute transform -translate-x-1/2 -translate-y-1/2"
+        >
+          <img
+            src={type.src}
+            alt={drink.type}
+            className="w-full h-full object-contain animate-twinkle"
+            style={{ filter: type.glow ? `drop-shadow(0 0 10px #d8b4fe)` : 'none' }}
+          />
+        </div>
+      );
+    };
+
+    const Catcher = ({ position }) => (
+      <img
+        src="https://lucianlipsgaming.owenelwin.com/womiay/lips.png"
+        alt="Catcher Lips"
+        style={{ left: `${position}%`, bottom: `${CATCHER_BOTTOM_OFFSET_PERCENT}%`, width: `${CATCHER_WIDTH_PERCENT}%`, height: `${CATCHER_HEIGHT_PERCENT}%` }}
+        className="absolute transform -translate-x-1/2 object-contain"
+        aria-label="Catcher"
+      />
+    );
+
+    const GameOverScreen = ({ scores, onRestart, unlockTiers }) => {
+      const [copied, setCopied] = useState(false);
+      const gameUrl = "https://lucianlipsgaming.owenelwin.com/womiay";
+
+      const handleShare = async (e) => {
+        e.stopPropagation();
+
+        const scoreParts = [];
+        if (scores.pitons > 0)   scoreParts.push(`${scores.pitons} piton${scores.pitons !== 1 ? 's' : ''}`);
+        if (scores.heineken > 0) scoreParts.push(`${scores.heineken} heineken${scores.heineken !== 1 ? 's' : ''}`);
+        if (scores.guinness > 0) scoreParts.push(`${scores.guinness} guinness${scores.guinness !== 1 ? 'es' : ''}`);
+        if (scores.rudeBoy > 0)  scoreParts.push(`${scores.rudeBoy} rude boy${scores.rudeBoy !== 1 ? 's' : ''}`);
+
+        const shareText = `I fired ${scoreParts.join(' and ')}! try to beat my score!`;
+
+        if (navigator.share) {
+          try { await navigator.share({ title: 'Womiay', text: shareText, url: gameUrl }); }
+          catch (err) { console.error("Share failed:", err); }
+        } else {
+          navigator.clipboard.writeText(`${shareText} ${gameUrl}`).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          });
+        }
+      };
+
+      return (
+        <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white z-20">
+          <h2 className="text-5xl font-extrabold mb-4">Game Over</h2>
+          <div className="text-center text-2xl mb-8">
+            {scores.pitons > 0 && <p>Pitons Fired: {scores.pitons}</p>}
+            {unlockTiers[0].unlocked && scores.heineken > 0 && <p>Heinekens Fired: {scores.heineken}</p>}
+            {unlockTiers[1].unlocked && scores.guinness > 0 && <p>Guinnesses Fired: {scores.guinness}</p>}
+            {unlockTiers[2].unlocked && scores.rudeBoy > 0 && <p>Rude Boys Fired: {scores.rudeBoy}</p>}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button onClick={onRestart} className="px-8 py-4 bg-purple-600 hover:bg-purple-700 rounded-lg text-xl font-bold transition-transform transform hover:scale-105">Play Again</button>
+            <button onClick={handleShare} className="px-8 py-4 bg-teal-500 hover:bg-teal-600 rounded-lg text-xl font-bold transition-transform transform hover:scale-105">{copied ? 'Link Copied!' : 'Share Score'}</button>
+          </div>
+        </div>
+      );
+    };
+
+    const StartScreen = ({ onStart }) => (
+      <div
+        className="absolute inset-0 bg-gradient-to-b from-indigo-900 to-indigo-500 flex flex-col justify-center items-center text-white z-20 cursor-pointer"
+        onClick={onStart}
+      >
+        <h2 className="text-5xl font-extrabold mb-4 animate-twinkle">Start Game</h2>
+        <p className="text-xl mt-4">Click or Tap to Begin</p>
+      </div>
+    );
+
+    const UnlockScreen = ({ onResume, unlockedTier }) => {
+      const tierInfo = UNLOCK_TIERS.find(t => t.name === unlockedTier);
+      return (
+        <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col justify-center items-center text-white z-30 cursor-pointer" onClick={onResume}>
+          <h2 className={`text-5xl font-extrabold mb-4 ${tierInfo.textColor} animate-twinkle`}>
+            {unlockedTier.charAt(0).toUpperCase() + unlockedTier.slice(1)} Unlocked!
+          </h2>
+          <p className="text-xl mt-4">A new drink has been added.</p>
+          <button className={`mt-8 px-8 py-4 ${tierInfo.bgColor} ${tierInfo.hoverBgColor} rounded-lg text-xl font-bold transition-transform transform hover:scale-105`}>Continue</button>
+        </div>
+      );
+    };
+
+    // --- MAIN APP ---
+    const App = () => {
+      const [gameState, setGameState] = useState('idle'); // 'idle', 'playing', 'paused', 'gameOver'
+      const [catcherPosition, setCatcherPosition] = useState(50);
+      const [drinks, setDrinks] = useState([]);
+      const [scores, setScores] = useState({ pitons: 0, heineken: 0, guinness: 0, rudeBoy: 0 });
+      const [speed, setSpeed] = useState(1.0);
+      const [spawnerPosition, setSpawnerPosition] = useState(50);
+      const [unlockTiers, setUnlockTiers] = useState(UNLOCK_TIERS);
+      const [justUnlockedTier, setJustUnlockedTier] = useState(null);
+
+      const gameContainerRef = useRef(null);
+      const gameLoopRef = useRef(null);
+      const drinkTimeoutRef = useRef(null);
+      const bonusSoundRef = useRef(null);     // twoForFive.mp3
+      const rudeBoySoundRef = useRef(null);   // NEW: rudeBoy.mp3
+      const backgroundMusicRef = useRef(null);
+
+      const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
+
+      const startGame = () => {
+        if (!backgroundMusicRef.current) {
+          backgroundMusicRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/peopleSay.mp3");
+          backgroundMusicRef.current.loop = true;
+        }
+        if (!bonusSoundRef.current) {
+          bonusSoundRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/twoForFive.mp3");
+        }
+        // NEW: init rude boy sound
+        if (!rudeBoySoundRef.current) {
+          rudeBoySoundRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/rudeBoy.mp3");
+        }
+
+        backgroundMusicRef.current.play().catch(e => console.error("Music failed to play:", e));
+
+        setDrinks([]);
+        setScores({ pitons: 0, heineken: 0, guinness: 0, rudeBoy: 0 });
+        setSpeed(1.0);
+        setCatcherPosition(50);
+        setSpawnerPosition(50);
+        setUnlockTiers(UNLOCK_TIERS.map(t => ({ ...t, unlocked: false })));
+        setJustUnlockedTier(null);
+        setGameState('playing');
+      };
+
+      const resumeGame = () => setGameState('playing');
+      const handleGameOver = useCallback(() => {
+        if (backgroundMusicRef.current) backgroundMusicRef.current.pause();
+        setGameState('gameOver');
+      }, []);
+      const restartGame = useCallback(() => {
+        if (backgroundMusicRef.current) backgroundMusicRef.current.currentTime = 0;
+        setGameState('idle');
+      }, []);
+
+      const spawnDrink = useCallback(() => {
+        const availableTiers = unlockTiers.filter(t => t.unlocked).map(t => t.name);
+        const availableDrinks = ['regular', 'bonus', ...availableTiers];
+
+        const rand = Math.random();
+        let drinkType;
+
+        // Simple weighted random spawn
+        if (availableDrinks.includes('rudeBoy') && rand < 0.10) drinkType = 'rudeBoy';
+        else if (availableDrinks.includes('guinness') && rand < 0.20) drinkType = 'guinness';
+        else if (availableDrinks.includes('heineken') && rand < 0.35) drinkType = 'heineken';
+        else if (rand < 0.55) drinkType = 'bonus';
+        else drinkType = 'regular';
+
+        const newX = 5 + Math.random() * 90;
+        setSpawnerPosition(newX);
+
+        setTimeout(() => {
+          if (gameState !== 'playing') return;
+          setDrinks(prev => [...prev, { id: Date.now(), x: newX, y: (SPAWNER_HEIGHT_PERCENT / 2), type: drinkType }]);
+        }, 500);
+      }, [gameState, unlockTiers]);
+
+      // Unlock check
+      useEffect(() => {
+        const nextUnlock = unlockTiers.find(tier => !tier.unlocked);
+        if (nextUnlock && scores.pitons >= nextUnlock.score) {
+          setUnlockTiers(tiers => tiers.map(t => t.name === nextUnlock.name ? { ...t, unlocked: true } : t));
+          setJustUnlockedTier(nextUnlock.name);
+          setSpeed(1.0);
+          setGameState('paused');
+        }
+      }, [scores.pitons, unlockTiers]);
+
+      // Game Loop
+      useEffect(() => {
+        if (gameState !== 'playing') {
+          clearTimeout(drinkTimeoutRef.current);
+          cancelAnimationFrame(gameLoopRef.current);
+          return;
+        }
+
+        const moveDrinks = () => {
+          const newScores = { ...scores };
+          let itemsCaughtThisFrame = 0;
+          let gameOverTriggered = false;
+          const remainingDrinks = [];
+
+          for (const drink of drinks) {
+            const newY = drink.y + 0.2 * speed;
+            if (newY > 105) { gameOverTriggered = true; break; }
+
+            const catcherTopY = 100 - CATCHER_BOTTOM_OFFSET_PERCENT - CATCHER_HEIGHT_PERCENT;
+            const isCaught =
+              newY > catcherTopY &&
+              drink.x > catcherPosition - CATCHER_WIDTH_PERCENT / 2 &&
+              drink.x < catcherPosition + CATCHER_WIDTH_PERCENT / 2;
+
+            if (isCaught) {
+              itemsCaughtThisFrame++;
+              const drinkTypeData = DRINK_TYPES[drink.type];
+
+              if (drink.type === 'heineken' || drink.type === 'guinness' || drink.type === 'rudeBoy') {
+                newScores[drink.type] += drinkTypeData.points;
+
+                // NEW: play rudeBoy.mp3 when catching a Rude Boy
+                if (drink.type === 'rudeBoy' && rudeBoySoundRef.current) {
+                  const s = rudeBoySoundRef.current;
+                  s.currentTime = 0;
+                  s.play();
+                }
+              } else {
+                // Pitons (regular/bonus)
+                newScores.pitons += drinkTypeData.points;
+                if (drink.type === 'bonus' && bonusSoundRef.current) {
+                  bonusSoundRef.current.currentTime = 0;
+                  bonusSoundRef.current.play();
+                }
+              }
+            } else {
+              remainingDrinks.push({ ...drink, y: newY });
+            }
+          }
+
+          if (gameOverTriggered) { handleGameOver(); return; }
+
+          setDrinks(remainingDrinks);
+          if (itemsCaughtThisFrame > 0) {
+            setScores(newScores);
+            setSpeed(s => s + (GAME_SPEED_INCREMENT * itemsCaughtThisFrame));
+          }
+          gameLoopRef.current = requestAnimationFrame(moveDrinks);
         };
 
-        // --- COMPONENTS ---
+        gameLoopRef.current = requestAnimationFrame(moveDrinks);
+        return () => cancelAnimationFrame(gameLoopRef.current);
+      }, [gameState, drinks, speed, catcherPosition, handleGameOver, scores]);
 
-        const Header = () => (
-            <header className="bg-gray-900 text-white text-center p-3 z-10 select-none shadow-lg">
-                <h1 className="text-4xl md:text-5xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 drop-shadow-lg font-brand">Lucian Lips Gaming</h1>
-            </header>
-        );
+      // Spawner Interval
+      useEffect(() => {
+        if (gameState !== 'playing') return;
+        const spawnInterval = DRINK_SPAWN_INTERVAL_MS / speed;
+        drinkTimeoutRef.current = setInterval(spawnDrink, spawnInterval);
+        return () => clearInterval(drinkTimeoutRef.current);
+      }, [gameState, speed, spawnDrink]);
 
-        const Hud = ({ score, speed }) => (
-            <div className="absolute top-0 left-0 right-0 p-2 text-white text-lg flex justify-between px-4 z-10 select-none bg-black/20">
-                <span>Beers: {score}</span>
-                <span>Speed: {speed.toFixed(1)}x</span>
-            </div>
-        );
+      // Controls
+      const handleMouseMove = useCallback((e) => {
+        if (gameState !== 'playing' || !gameContainerRef.current) return;
+        const rect = gameContainerRef.current.getBoundingClientRect();
+        const newX = ((e.clientX - rect.left) / rect.width) * 100;
+        setCatcherPosition(Math.max(CATCHER_WIDTH_PERCENT / 2, Math.min(100 - CATCHER_WIDTH_PERCENT / 2, newX)));
+      }, [gameState]);
 
-        const Spawner = ({ position }) => (
-            <img
-                src="https://lucianlipsgaming.owenelwin.com/womiay/theBar.png"
-                alt="Bar Spawner"
-                style={{
-                    left: `${position}%`,
-                    top: `0%`,
-                    width: `${SPAWNER_WIDTH_PERCENT}%`,
-                    height: `${SPAWNER_HEIGHT_PERCENT}%`,
-                }}
-                className="absolute transform -translate-x-1/2 object-contain transition-all duration-500 ease-in-out"
-            />
-        );
+      const handleTouchMove = useCallback((e) => {
+        if (gameState !== 'playing' || !gameContainerRef.current) return;
+        e.preventDefault();
+        const rect = gameContainerRef.current.getBoundingClientRect();
+        const newX = ((e.touches[0].clientX - rect.left) / rect.width) * 100;
+        setCatcherPosition(Math.max(CATCHER_WIDTH_PERCENT / 2, Math.min(100 - CATCHER_WIDTH_PERCENT / 2, newX)));
+      }, [gameState]);
 
-        const Drink = ({ drink }) => {
-            const type = DRINK_TYPES[drink.type];
-            return (
-                <div
-                    style={{
-                        left: `${drink.x}%`,
-                        top: `${drink.y}%`,
-                        width: `${type.size}px`,
-                        height: `${type.size}px`,
-                    }}
-                    className={`absolute transform -translate-x-1/2 -translate-y-1/2`}
-                >
-                    <img
-                        src={type.src}
-                        alt={drink.type}
-                        className="w-full h-full object-contain animate-twinkle"
-                        style={{
-                             filter: type.glow ? `drop-shadow(0 0 10px #d8b4fe)` : 'none',
-                        }}
-                    />
-                </div>
-            );
-        };
+      const handleKeyDown = useCallback((e) => {
+        if (gameState === 'idle') { startGame(); return; }
+        if (gameState === 'paused') { resumeGame(); return; }
+        if (gameState !== 'playing') return;
+        const moveAmount = 5;
+        if (e.key === 'ArrowLeft')
+          setCatcherPosition(pos => Math.max(CATCHER_WIDTH_PERCENT / 2, pos - moveAmount));
+        else if (e.key === 'ArrowRight')
+          setCatcherPosition(pos => Math.min(100 - CATCHER_WIDTH_PERCENT / 2, pos + moveAmount));
+      }, [gameState, startGame, resumeGame]);
 
-        const Catcher = ({ position }) => (
-            <img
-                src="https://lucianlipsgaming.owenelwin.com/womiay/lips.png"
-                alt="Catcher Lips"
-                style={{
-                    left: `${position}%`,
-                    bottom: `${CATCHER_BOTTOM_OFFSET_PERCENT}%`,
-                    width: `${CATCHER_WIDTH_PERCENT}%`,
-                    height: `${CATCHER_HEIGHT_PERCENT}%`
-                }}
-                className="absolute transform -translate-x-1/2 object-contain"
-                aria-label="Catcher"
-            />
-        );
+      useEffect(() => {
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [handleKeyDown]);
 
-        const GameOverScreen = ({ pitonScore, heinekenScore, onRestart, heinekenUnlocked }) => {
-            const [copied, setCopied] = useState(false);
-            const gameUrl = "https://lucianlipsgaming.owenelwin.com/womiay";
+      return (
+        <>
+          <Header />
+          <main
+            ref={gameContainerRef}
+            className="game-container bg-gradient-to-b from-indigo-900 to-indigo-500"
+            onMouseMove={handleMouseMove}
+            onTouchMove={handleTouchMove}
+            onTouchStart={e => e.preventDefault()}
+          >
+            {gameState === 'idle' && <StartScreen onStart={startGame} />}
+            {gameState === 'paused' && <UnlockScreen onResume={resumeGame} unlockedTier={justUnlockedTier} />}
 
-            const handleShare = async (e) => {
-                e.stopPropagation(); 
-                
-                const pitonText = `${pitonScore} piton${pitonScore !== 1 ? 's' : ''}`;
-                let shareText;
+            {(gameState === 'playing' || gameState === 'paused' || gameState === 'gameOver') && (
+              <>
+                <Hud score={totalScore} speed={speed} />
+                <Spawner position={spawnerPosition} />
+                {drinks.map(drink => <Drink key={drink.id} drink={drink} />)}
+                <Catcher position={catcherPosition} />
+              </>
+            )}
+            {gameState === 'gameOver' && <GameOverScreen scores={scores} onRestart={restartGame} unlockTiers={unlockTiers} />}
+          </main>
+        </>
+      );
+    };
 
-                if (heinekenUnlocked) {
-                    const heinekenText = `${heinekenScore} heineken${heinekenScore !== 1 ? 's' : ''}`;
-                    shareText = `I fired ${pitonText} and ${heinekenText}! try to beat my score!`;
-                } else {
-                    shareText = `I fired ${pitonText}! try to beat my score!`;
-                }
-
-                if (navigator.share) {
-                    try { await navigator.share({ title: 'Womiay', text: shareText, url: gameUrl }); } catch (err) { console.error("Share failed:", err); }
-                } else {
-                    navigator.clipboard.writeText(`${shareText} ${gameUrl}`).then(() => {
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                    });
-                }
-            };
-            
-            return (
-                <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white z-20">
-                    <h2 className="text-5xl font-extrabold mb-4">Game Over</h2>
-                    <div className="text-center text-2xl mb-8">
-                        <p>Pitons Fired: {pitonScore}</p>
-                        {heinekenUnlocked && <p>Heinekens Fired: {heinekenScore}</p>}
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <button onClick={onRestart} className="px-8 py-4 bg-purple-600 hover:bg-purple-700 rounded-lg text-xl font-bold transition-transform transform hover:scale-105">
-                            Play Again
-                        </button>
-                        <button onClick={handleShare} className="px-8 py-4 bg-teal-500 hover:bg-teal-600 rounded-lg text-xl font-bold transition-transform transform hover:scale-105">
-                            {copied ? 'Link Copied!' : 'Share Score'}
-                        </button>
-                    </div>
-                </div>
-            );
-        };
-
-        const StartScreen = ({ onStart }) => (
-             <div className="absolute inset-0 bg-gradient-to-b from-indigo-900 to-indigo-500 flex flex-col justify-center items-center text-white z-20 cursor-pointer" onClick={onStart}>
-                <h2 className="text-5xl font-extrabold mb-4 animate-twinkle">Start Game</h2>
-                <p className="text-xl mt-4">Click or Tap to Begin</p>
-             </div>
-        );
-
-        const UnlockScreen = ({ onResume }) => (
-            <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col justify-center items-center text-white z-30 cursor-pointer" onClick={onResume}>
-                <h2 className="text-5xl font-extrabold mb-4 text-green-400 animate-twinkle">Heineken Unlocked!</h2>
-                <p className="text-xl mt-4">A new drink has been added.</p>
-                <button className="mt-8 px-8 py-4 bg-green-600 hover:bg-green-700 rounded-lg text-xl font-bold transition-transform transform hover:scale-105">
-                    Continue
-                </button>
-             </div>
-        );
-
-        // --- MAIN APP ---
-        const App = () => {
-            const [gameState, setGameState] = useState('idle'); // 'idle', 'playing', 'paused', 'gameOver'
-            const [heinekenUnlocked, setHeinekenUnlocked] = useState(false);
-            const [catcherPosition, setCatcherPosition] = useState(50);
-            const [drinks, setDrinks] = useState([]);
-            const [pitonScore, setPitonScore] = useState(0);
-            const [heinekenScore, setHeinekenScore] = useState(0);
-            const [speed, setSpeed] = useState(1.0);
-            const [spawnerPosition, setSpawnerPosition] = useState(50);
-            
-            const gameContainerRef = useRef(null);
-            const gameLoopRef = useRef(null);
-            const drinkTimeoutRef = useRef(null);
-            const bonusSoundRef = useRef(null);
-            const backgroundMusicRef = useRef(null);
-            
-            const totalScore = pitonScore + heinekenScore;
-
-            const startGame = () => {
-                if (!backgroundMusicRef.current) {
-                    backgroundMusicRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/peopleSay.mp3");
-                    backgroundMusicRef.current.loop = true;
-                }
-                if (!bonusSoundRef.current) {
-                    bonusSoundRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/twoForFive.mp3");
-                }
-                backgroundMusicRef.current.play().catch(e => console.error("Music failed to play:", e));
-
-                setDrinks([]);
-                setPitonScore(0);
-                setHeinekenScore(0);
-                setSpeed(1.0);
-                setCatcherPosition(50);
-                setSpawnerPosition(50);
-                setHeinekenUnlocked(false);
-                setGameState('playing');
-            };
-            
-            const resumeGame = () => setGameState('playing');
-
-            const handleGameOver = useCallback(() => {
-                if(backgroundMusicRef.current) backgroundMusicRef.current.pause();
-                setGameState('gameOver');
-            }, []);
-            
-            const restartGame = useCallback(() => {
-                 if(backgroundMusicRef.current) backgroundMusicRef.current.currentTime = 0;
-                 setGameState('idle');
-            }, []);
-
-            const spawnDrink = useCallback(() => {
-                const rand = Math.random();
-                let drinkType;
-
-                if(heinekenUnlocked) {
-                    if (rand < 0.15) drinkType = 'heineken';
-                    else if (rand < 0.35) drinkType = 'bonus';
-                    else drinkType = 'regular';
-                } else {
-                    if (rand < 0.15) drinkType = 'bonus';
-                    else drinkType = 'regular';
-                }
-
-                const newX = 5 + Math.random() * 90;
-                setSpawnerPosition(newX);
-
-                setTimeout(() => {
-                    if (gameState !== 'playing') return;
-                    setDrinks(prev => [...prev, { id: Date.now(), x: newX, y: (SPAWNER_HEIGHT_PERCENT / 2), type: drinkType }]);
-                }, 500);
-                
-            }, [gameState, heinekenUnlocked]);
-            
-            // Score check for unlock
-            useEffect(() => {
-                if (pitonScore >= HEINEKEN_UNLOCK_SCORE && !heinekenUnlocked) {
-                    setHeinekenUnlocked(true);
-                    setSpeed(1.0); // Reset speed on unlock
-                    setGameState('paused');
-                }
-            }, [pitonScore, heinekenUnlocked]);
-
-            // Game Loop
-            useEffect(() => {
-                if (gameState !== 'playing') {
-                    clearTimeout(drinkTimeoutRef.current);
-                    cancelAnimationFrame(gameLoopRef.current);
-                    return;
-                };
-
-                const moveDrinks = () => {
-                    let heinekenPointsThisFrame = 0;
-                    let pitonPointsThisFrame = 0;
-                    let itemsCaughtThisFrame = 0;
-
-                    let gameOverTriggered = false;
-                    const remainingDrinks = [];
-
-                    for (const drink of drinks) {
-                        const newY = drink.y + 0.2 * speed;
-
-                        if (newY > 105) {
-                            gameOverTriggered = true;
-                            break; 
-                        }
-
-                        const catcherTopY = 100 - CATCHER_BOTTOM_OFFSET_PERCENT - CATCHER_HEIGHT_PERCENT;
-                        const catcherBottomY = 100 - CATCHER_BOTTOM_OFFSET_PERCENT;
-                        const catcherHalfWidth = CATCHER_WIDTH_PERCENT / 2;
-
-                        const isCaught = newY > catcherTopY && newY < catcherBottomY &&
-                                       drink.x > catcherPosition - catcherHalfWidth &&
-                                       drink.x < catcherPosition + catcherHalfWidth;
-
-                        if (isCaught) {
-                            const drinkTypeData = DRINK_TYPES[drink.type];
-                            itemsCaughtThisFrame++;
-
-                            if (drink.type === 'heineken') {
-                                heinekenPointsThisFrame += drinkTypeData.points;
-                            } else {
-                                pitonPointsThisFrame += drinkTypeData.points;
-                                if (drink.type === 'bonus') {
-                                    if(bonusSoundRef.current) {
-                                      bonusSoundRef.current.currentTime = 0;
-                                      bonusSoundRef.current.play();
-                                    }
-                                }
-                            }
-                        } else {
-                            remainingDrinks.push({ ...drink, y: newY });
-                        }
-                    }
-
-                    if (gameOverTriggered) {
-                        handleGameOver();
-                        return;
-                    }
-
-                    setDrinks(remainingDrinks);
-                    
-                    if (itemsCaughtThisFrame > 0) {
-                        if (pitonPointsThisFrame > 0) setPitonScore(s => s + pitonPointsThisFrame);
-                        if (heinekenPointsThisFrame > 0) setHeinekenScore(s => s + heinekenPointsThisFrame);
-                        setSpeed(s => s + (GAME_SPEED_INCREMENT * itemsCaughtThisFrame));
-                    }
-                    
-                    gameLoopRef.current = requestAnimationFrame(moveDrinks);
-                };
-
-                gameLoopRef.current = requestAnimationFrame(moveDrinks);
-                return () => cancelAnimationFrame(gameLoopRef.current);
-            }, [gameState, drinks, speed, catcherPosition, handleGameOver]);
-
-            // Drink Spawner Interval
-            useEffect(() => {
-                if (gameState !== 'playing') return;
-                const spawnInterval = DRINK_SPAWN_INTERVAL_MS / speed;
-                drinkTimeoutRef.current = setInterval(spawnDrink, spawnInterval);
-                return () => clearInterval(drinkTimeoutRef.current);
-            }, [gameState, speed, spawnDrink]);
-
-            // Controls
-            const handleMouseMove = useCallback((e) => {
-                if (gameState !== 'playing' || !gameContainerRef.current) return;
-                const rect = gameContainerRef.current.getBoundingClientRect();
-                const newX = ((e.clientX - rect.left) / rect.width) * 100;
-                const halfWidth = CATCHER_WIDTH_PERCENT / 2;
-                setCatcherPosition(Math.max(halfWidth, Math.min(100 - halfWidth, newX)));
-            }, [gameState]);
-            
-            const handleTouchMove = useCallback((e) => {
-                 if (gameState !== 'playing' || !gameContainerRef.current) return;
-                 e.preventDefault();
-                 const rect = gameContainerRef.current.getBoundingClientRect();
-                 const newX = ((e.touches[0].clientX - rect.left) / rect.width) * 100;
-                 const halfWidth = CATCHER_WIDTH_PERCENT / 2;
-                 setCatcherPosition(Math.max(halfWidth, Math.min(100 - halfWidth, newX)));
-            }, [gameState]);
-
-            const handleKeyDown = useCallback((e) => {
-                if(gameState === 'idle') { startGame(); return; }
-                if(gameState === 'paused') { resumeGame(); return; }
-                if (gameState !== 'playing') return;
-                
-                const moveAmount = 5;
-                if (e.key === 'ArrowLeft') setCatcherPosition(pos => Math.max(CATCHER_WIDTH_PERCENT / 2, pos - moveAmount));
-                else if (e.key === 'ArrowRight') setCatcherPosition(pos => Math.min(100 - CATCHER_WIDTH_PERCENT / 2, pos + moveAmount));
-            }, [gameState, startGame, resumeGame]);
-            
-            useEffect(() => {
-                window.addEventListener('keydown', handleKeyDown);
-                return () => window.removeEventListener('keydown', handleKeyDown);
-            }, [handleKeyDown]);
-            
-            // I noticed the score was being checked against total score, but it should be piton score for unlock
-            // I fixed this to check `pitonScore` instead of `totalScore` for the unlock.
-            // I also changed the heineken points from 1 to 5 to make it more valuable.
-
-            return (
-                <>
-                    <Header />
-                    <main 
-                        ref={gameContainerRef} 
-                        className="game-container bg-gradient-to-b from-indigo-900 to-indigo-500"
-                        onMouseMove={handleMouseMove}
-                        onTouchMove={handleTouchMove}
-                        onTouchStart={e => e.preventDefault()}
-                    >
-                       {gameState === 'idle' && <StartScreen onStart={startGame} />}
-                       {gameState === 'paused' && <UnlockScreen onResume={resumeGame} />}
-                       
-                       {(gameState === 'playing' || gameState === 'paused') && (
-                           <>
-                                <Hud score={totalScore} speed={speed} />
-                                <Spawner position={spawnerPosition} />
-                                {drinks.map(drink => <Drink key={drink.id} drink={drink} />)}
-                                <Catcher position={catcherPosition} />
-                           </>
-                       )}
-                       {gameState === 'gameOver' && <GameOverScreen pitonScore={pitonScore} heinekenScore={heinekenScore} onRestart={restartGame} heinekenUnlocked={heinekenUnlocked} />}
-                    </main>
-                </>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
