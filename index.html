@@ -74,9 +74,9 @@
     const DRINK_TYPES = {
       regular:  { src: "https://lucianlipsgaming.owenelwin.com/womiay/onePiton.png",  size: 150, points: 1, glow: false },
       bonus:    { src: "https://lucianlipsgaming.owenelwin.com/womiay/twoPitons.png", size: 200, points: 2, glow: true  },
-      heineken: { src: "https://lucianlipsgaming.owenelwin.com/womiay/heineken.png", size: 200, points: 1, glow: true  },
-      guinness: { src: "https://lucianlipsgaming.owenelwin.com/womiay/guinness.png", size: 200, points: 1, glow: true  },
-      rudeBoy:  { src: "https://lucianlipsgaming.owenelwin.com/womiay/rudeBoy.png",  size: 150, points: 1, glow: true  },
+      heineken: { src: "https://lucianlipsgaming.owenelwin.com/womiay/heineken.png", size: 200, points: 5, glow: true  },
+      guinness: { src: "https://lucianlipsgaming.owenelwin.com/womiay/guinness.png", size: 200, points: 10, glow: true  },
+      rudeBoy:  { src: "https://lucianlipsgaming.owenelwin.com/womiay/rudeBoy.png",  size: 150, points: 15, glow: true  },
     };
 
     // --- COMPONENTS ---
@@ -179,7 +179,7 @@
         className="absolute inset-0 bg-gradient-to-b from-indigo-900 to-indigo-500 flex flex-col justify-center items-center text-white z-20 cursor-pointer"
         onClick={onStart}
       >
-        <h2 className="text-5xl font-extrabold mb-4 animate-twinkle">Start Game</h2>
+        <h2 className="text-5xl font-extrabold mb-4 animate-twinkle">Start Womiay Game</h2>
         <p className="text-xl mt-4">Click or Tap to Begin</p>
       </div>
     );
@@ -225,7 +225,6 @@
         if (!bonusSoundRef.current) {
           bonusSoundRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/twoForFive.mp3");
         }
-        // NEW: init rude boy sound
         if (!rudeBoySoundRef.current) {
           rudeBoySoundRef.current = new Audio("https://lucianlipsgaming.owenelwin.com/womiay/rudeBoy.mp3");
         }
@@ -259,7 +258,6 @@
         const rand = Math.random();
         let drinkType;
 
-        // Simple weighted random spawn
         if (availableDrinks.includes('rudeBoy') && rand < 0.10) drinkType = 'rudeBoy';
         else if (availableDrinks.includes('guinness') && rand < 0.20) drinkType = 'guinness';
         else if (availableDrinks.includes('heineken') && rand < 0.35) drinkType = 'heineken';
@@ -278,13 +276,13 @@
       // Unlock check
       useEffect(() => {
         const nextUnlock = unlockTiers.find(tier => !tier.unlocked);
-        if (nextUnlock && scores.pitons >= nextUnlock.score) {
+        if (nextUnlock && totalScore >= nextUnlock.score) {
           setUnlockTiers(tiers => tiers.map(t => t.name === nextUnlock.name ? { ...t, unlocked: true } : t));
           setJustUnlockedTier(nextUnlock.name);
           setSpeed(1.0);
           setGameState('paused');
         }
-      }, [scores.pitons, unlockTiers]);
+      }, [scores, unlockTiers, totalScore]);
 
       // Game Loop
       useEffect(() => {
@@ -316,19 +314,16 @@
 
               if (drink.type === 'heineken' || drink.type === 'guinness' || drink.type === 'rudeBoy') {
                 newScores[drink.type] += drinkTypeData.points;
-
-                // NEW: play rudeBoy.mp3 when catching a Rude Boy
                 if (drink.type === 'rudeBoy' && rudeBoySoundRef.current) {
                   const s = rudeBoySoundRef.current;
                   s.currentTime = 0;
-                  s.play();
+                  s.play().catch(e => console.error("Rude Boy sound failed:", e));
                 }
               } else {
-                // Pitons (regular/bonus)
                 newScores.pitons += drinkTypeData.points;
                 if (drink.type === 'bonus' && bonusSoundRef.current) {
                   bonusSoundRef.current.currentTime = 0;
-                  bonusSoundRef.current.play();
+                  bonusSoundRef.current.play().catch(e => console.error("Bonus sound failed:", e));
                 }
               }
             } else {
